@@ -5,17 +5,17 @@ import './App.css';
 const positions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF'];
 const innings = [1, 2, 3, 4, 5];
 const fullRoster = [
-  'Agastya Rai',
-  'Alexander Ramirez',
-  'Cameron Jones',
-  'Casey Handegard',
-  'Elijah Sloate',
-  'Lane Deysenroth',
-  'Lee Soptich',
-  'Lincoln Krupper',
-  'Miles Corrick',
-  'Oliver Olson',
-  'Roy Olson',
+  'Agastya',
+  'Alexander',
+  'Cam',
+  'Casey',
+  'EJ',
+  'Lane',
+  'Lee',
+  'Lincoln',
+  'Miles',
+  'Oliver',
+  'Roy',
 ];
 
 function App() {
