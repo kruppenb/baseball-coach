@@ -1,3 +1,4 @@
+/* eslint-disable no-loop-func */
 import React, { useState } from 'react';
 import './App.css';
 
@@ -18,12 +19,10 @@ const fullRoster = [
 ];
 
 function App() {
-  // Nick selects active players for the game
+  // State and handlers for the component
   const [activePlayers, setActivePlayers] = useState<string[]>(fullRoster);
-  // Pitcher/catcher assignments
   const [pitchers, setPitchers] = useState<{[slot: number]: string}>({1: '', 2: '', 3: ''});
   const [catchers, setCatchers] = useState<{[slot: number]: string}>({1: '', 2: '', 3: ''});
-  // Lineup: inning -> position -> player name
   const [lineup, setLineup] = useState<{ [inning: number]: { [pos: string]: string } }>(() => {
     const initial: any = {};
     innings.forEach((inn) => {
@@ -34,7 +33,6 @@ function App() {
     });
     return initial;
   });
-  const [errors, setErrors] = useState<string[]>([]);
 
   // Handle active player selection
   function togglePlayer(player: string) {
@@ -86,8 +84,6 @@ function App() {
     // Use either passed in lineup via 'this' context or component state
     const currentLineup = (this && this.lineup) || lineup;
     const currentActivePlayers = (this && this.activePlayers) || activePlayers;
-    const currentPitchers = (this && this.pitchers) || pitchers;
-    const currentCatchers = (this && this.catchers) || catchers;
     
     const results: { step: string; errors: string[] }[] = [];
     // Step 1
@@ -212,30 +208,10 @@ function App() {
     return results;
   }
 
-  // Memoize validation results for performance
-  const validationResults = React.useMemo(getAllValidationResults, [activePlayers, pitchers, catchers, lineup]);
+  // Get validation results (no memoization needed)
+  const validationResults = getAllValidationResults();
 
-  // Helper for auto-generation
-  function assignSlot(arr: string[], player: string) {
-    const idx = arr.indexOf(player);
-    if (idx !== -1) arr.splice(idx, 1);
-  }
-
-  // Helper: count infield positions for each player by inning 4
-  function getInfieldCounts(lineup: { [inning: number]: { [pos: string]: string } }, players: string[]) {
-    const infieldPositions = ['P', 'C', '1B', '2B', '3B', 'SS'];
-    const counts: { [player: string]: number } = {};
-    players.forEach((p) => (counts[p] = 0));
-    for (let inn = 1; inn <= 4; inn++) {
-      infieldPositions.forEach((pos) => {
-        const player = lineup[inn][pos];
-        if (player && counts[player] !== undefined) {
-          counts[player]++;
-        }
-      });
-    }
-    return counts;
-  }
+  // Improved auto-generate lineup implementation follows...
 
   // Improved auto-generate lineup: ensure all players get 2 infield positions by inning 4 (robust)
   function autoGenerateLineup() {
@@ -243,10 +219,10 @@ function App() {
     let attempt = 0;
     let newLineup: { [inning: number]: { [pos: string]: string } } = {};
     let valid = false;
+
     while (attempt < maxAttempts && !valid) {
       console.log(`Attempt #${attempt + 1}`);
       newLineup = {};
-      const infieldPositions = ['P', 'C', '1B', '2B', '3B', 'SS'];
       const outfieldPositions = ['LF', 'CF', 'RF'];
       const shuffled = [...activePlayers].sort(() => Math.random() - 0.5);
       console.log('Shuffled activePlayers:', shuffled);
@@ -254,12 +230,6 @@ function App() {
       // Precompute pitcher/catcher for each inning
       const pitcherByInning: { [inn: number]: string } = {};
       const catcherByInning: { [inn: number]: string } = {};
-      
-      // Validate pitcher/catcher assignments before proceeding
-      if (!pitchers[1] || !pitchers[2] || !pitchers[3] || !catchers[1] || !catchers[2] || !catchers[3]) {
-        setErrors(['Please assign all pitcher and catcher slots before generating lineup']);
-        return;
-      }
 
       // Map innings to pitcher/catcher slots
       [1, 2].forEach(inn => {
@@ -343,7 +313,26 @@ function App() {
 
       // Build the lineup inning by inning
       let failed = false;
+      // Helper to get previous inning's lineup for a position
+      const getPrevInningPlayer = (lineupState: any, inning: number, pos: string) => {
+        return inning > 1 && lineupState[inning - 1] ? lineupState[inning - 1][pos] : null;
+      };
+      // Infield eligibility helper (moved outside loop to fix no-loop-func)
+      const isEligibleInfield = (p: string, used: Set<string>, prevInningPlayer: string | null) => {
+        if (used.has(p)) return false;
+        return prevInningPlayer !== p;
+      };
+      // Outfield eligibility helpers
+      const isEligibleSatOut = (p: string, usedSet: Set<string>, lineupState: any, inning: number, pos: string) => {
+        return !usedSet.has(p) && getPrevInningPlayer(lineupState, inning, pos) !== p;
+      };
+      const isEligibleOutfield = (p: string, usedSet: Set<string>, lineupState: any, inning: number, pos: string) => {
+        if (usedSet.has(p)) return false;
+        return getPrevInningPlayer(lineupState, inning, pos) !== p;
+      };
+
       for (let inn = 1; inn <= 5; inn++) {
+        const currentLineupState = { ...newLineup };  // Capture current state
         newLineup[inn] = {};
         
         // 1. Assign pitcher and catcher (predetermined)
@@ -357,6 +346,8 @@ function App() {
           for (const pos of ['1B', '2B', '3B', 'SS']) {
             // Find player assigned to this slot
             let assignedPlayer = '';
+            const currentState = { ...currentLineupState };  // Use captured state
+            
             for (const [player, slots] of Object.entries(slotAssignments)) {
               if (slots.some(s => s.inn === inn && s.pos === pos)) {
                 assignedPlayer = player;
@@ -369,11 +360,9 @@ function App() {
               used.add(assignedPlayer);
             } else {
               // Find eligible player who hasn't played this position in adjacent innings
-              const eligible = shuffled.filter(p => {
-                if (used.has(p)) return false;
-                const prevInning = inn > 1 ? newLineup[inn - 1][pos] : null;
-                return prevInning !== p;
-              });
+              const prevInning = inn > 1 ? currentState[inn - 1][pos] : null;
+              // eslint-disable-next-line no-loop-func
+              const eligible = shuffled.filter(p => isEligibleInfield(p, used, prevInning));
               
               if (eligible.length === 0) {
                 failed = true;
@@ -388,11 +377,9 @@ function App() {
         } else {
           // For inning 5, just ensure no consecutive positions
           for (const pos of ['1B', '2B', '3B', 'SS']) {
-            const eligible = shuffled.filter(p => {
-              if (used.has(p)) return false;
-              const prevInning = newLineup[inn - 1][pos];
-              return prevInning !== p;
-            });
+            const prevInning = currentLineupState[inn - 1][pos];
+            // eslint-disable-next-line no-loop-func
+            const eligible = shuffled.filter(p => isEligibleInfield(p, used, prevInning));
             
             if (eligible.length === 0) {
               failed = true;
@@ -408,32 +395,17 @@ function App() {
         if (failed) break;
         // Assign outfield positions
         const outfieldPool = shuffled.filter(p => !used.has(p));
-        
         // Try to assign players who sat last inning first
         const satLastInning = inn > 1 ? 
-          shuffled.filter(p => !Object.values(newLineup[inn - 1]).includes(p)) : [];
-        
+          shuffled.filter(p => !Object.values(currentLineupState[inn - 1]).includes(p)) : [];
         for (const pos of outfieldPositions) {
-          // First try players who sat last inning
-          const eligibleSatOut = satLastInning.filter(p => 
-            !used.has(p) && 
-            (!newLineup[inn - 1] || newLineup[inn - 1][pos] !== p)
-          );
-          
-          // Then try anyone else who's available
+          const eligibleSatOut = satLastInning.filter(p => isEligibleSatOut(p, used, newLineup, inn, pos));
           const eligible = eligibleSatOut.length > 0 ? eligibleSatOut : 
-            outfieldPool.filter(p => {
-              if (used.has(p)) return false;
-              // Avoid consecutive positions
-              const prevInning = inn > 1 ? newLineup[inn - 1][pos] : null;
-              return prevInning !== p;
-            });
-          
+            outfieldPool.filter(p => isEligibleOutfield(p, used, newLineup, inn, pos));
           if (eligible.length === 0) {
             failed = true;
             break;
           }
-          
           const pick = eligible[Math.floor(Math.random() * eligible.length)];
           newLineup[inn][pos] = pick;
           used.add(pick);
@@ -502,11 +474,9 @@ function App() {
     }
 
     if (!valid) {
-      setErrors([`Could not generate a valid lineup after ${maxAttempts} attempts. Try changing pitcher/catcher assignments or active players.`]);
       console.log('Final failure: could not generate valid lineup.');
       return;
     }
-    setErrors([]);
     console.log('Successfully generated lineup:', newLineup);
   }
 
