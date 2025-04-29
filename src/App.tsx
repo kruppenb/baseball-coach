@@ -1,5 +1,5 @@
 /* eslint-disable no-loop-func */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 
 const positions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF'];
@@ -18,6 +18,9 @@ const fullRoster = [
   'Roy',
 ];
 
+// Add allowed GitHub usernames here (case-sensitive, as returned by GitHub API)
+const allowedGitHubUsers = ["kruppenb"];
+
 function App() {
   // State and handlers for the component
   const [activePlayers, setActivePlayers] = useState<string[]>(fullRoster);
@@ -33,6 +36,35 @@ function App() {
     });
     return initial;
   });
+
+  // Auth state
+  const [authChecked, setAuthChecked] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+
+  useEffect(() => {
+    // If running locally, bypass auth
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      setUser({ userDetails: "localdev" });
+      setIsAuthorized(true);
+      setAuthChecked(true);
+      return;
+    }
+    fetch("/.auth/me").then(async (res) => {
+      if (!res.ok) {
+        setAuthChecked(true);
+        return;
+      }
+      const data = await res.json();
+      if (data.clientPrincipal) {
+        setUser(data.clientPrincipal);
+        // Check if user is in allowed list
+        const githubUsername = data.clientPrincipal.userDetails?.split("@")[0];
+        setIsAuthorized(allowedGitHubUsers.includes(githubUsername));
+      }
+      setAuthChecked(true);
+    });
+  }, []);
 
   // Handle active player selection
   function togglePlayer(player: string) {
@@ -529,6 +561,30 @@ function App() {
       }
     }
     return count;
+  }
+
+  if (!authChecked) {
+    return <div style={{padding: 40, textAlign: 'center'}}>Checking authentication...</div>;
+  }
+
+  if (!user) {
+    // Not signed in
+    return (
+      <div style={{padding: 40, textAlign: 'center'}}>
+        <h2>Sign in required</h2>
+        <a href="/.auth/login/github"><button>Sign in with GitHub</button></a>
+      </div>
+    );
+  }
+
+  if (!isAuthorized) {
+    return (
+      <div style={{padding: 40, textAlign: 'center'}}>
+        <h2>Not authorized</h2>
+        <p>Your GitHub account is not allowed to access this app.</p>
+        <a href="/.auth/logout"><button>Sign out</button></a>
+      </div>
+    );
   }
 
   return (
