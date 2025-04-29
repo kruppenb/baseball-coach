@@ -1,5 +1,5 @@
 /* eslint-disable no-loop-func */
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './App.css';
 
 const positions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF'];
@@ -17,9 +17,6 @@ const fullRoster = [
   'Oliver',
   'Roy',
 ];
-
-// Add allowed GitHub usernames here (case-sensitive, as returned by GitHub API)
-const allowedGitHubUsers = ["kruppenb"];
 
 function App() {
   // State and handlers for the component
