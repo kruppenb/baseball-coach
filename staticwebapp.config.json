@@ -13,11 +13,11 @@
   "routes": [
     {
       "route": "/",
-      "allowedRoles": ["authenticated", "github:kruppenb"]
+      "allowedRoles": ["authenticated", "github|kruppenb"]
     },
     {
       "route": "/index.html",
-      "allowedRoles": ["authenticated", "github:kruppenb"]
+      "allowedRoles": ["authenticated", "github|kruppenb"]
     }
   ]
 }
