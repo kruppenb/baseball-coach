@@ -2,22 +2,5 @@
   "navigationFallback": {
     "rewrite": "index.html",
     "exclude": ["/static/*", "/images/*", "/*.{css,scss,js,png,gif,ico,jpg,svg}"]
-  },
-  "auth": {
-    "identityProviders": {
-      "github": {
-        "enabled": true
-      }
-    }
-  },
-  "routes": [
-    {
-      "route": "/",
-      "allowedRoles": ["authenticated", "github|kruppenb"]
-    },
-    {
-      "route": "/index.html",
-      "allowedRoles": ["authenticated", "github|kruppenb"]
-    }
-  ]
+  }
 }
